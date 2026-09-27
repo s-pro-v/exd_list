@@ -457,19 +457,103 @@ function getResolvedMobileUrl() {
   }
 }
 
-function renderQrToCanvas(text, size = 300) {
-  const canvas = document.createElement("canvas");
+function renderQrToCanvas(text, targetDisplaySize = 280) {
+  // 1. Wygeneruj bazowy kod QR bez sztucznego paddingu
+  const tempCanvas = document.createElement("canvas");
   const qr = new QRious({
-    element: canvas,
+    element: tempCanvas,
     value: text,
-    size: size,
+    size: 400,
     background: "#ffffff",
     foreground: "#000000",
-    level: "L", // Poziom 'L' (najniższy) daje najgrubsze, najbardziej czytelne piksele
-    padding: 16,
+    level: "L",
+    padding: 0,
   });
   void qr;
-  return canvas.toDataURL("image/png");
+
+  const ctx = tempCanvas.getContext("2d");
+  const imgData = ctx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+  const { data, width, height } = imgData;
+
+  // 2. Znajdź dokładny obszar modułów (bounding box czarnych pikseli)
+  let minX = width,
+    minY = height,
+    maxX = -1,
+    maxY = -1;
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const idx = (y * width + x) * 4;
+      if (data[idx] < 128 && data[idx + 3] > 128) {
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+      }
+    }
+  }
+
+  if (maxX < minX || maxY < minY) {
+    return {
+      dataUrl: tempCanvas.toDataURL("image/png"),
+      size: targetDisplaySize,
+    };
+  }
+
+  const qrWidth = maxX - minX + 1;
+  const qrHeight = maxY - minY + 1;
+
+  // Wykryj szerokość modułu na podstawie znacznika narożnego (zawsze 7 modułów)
+  let finderStroke = 0;
+  for (let x = minX; x <= maxX; x++) {
+    const idx = (minY * width + x) * 4;
+    if (data[idx] < 128 && data[idx + 3] > 128) finderStroke++;
+    else break;
+  }
+  const modulePx = finderStroke > 0 ? finderStroke / 7 : qrWidth / 29;
+  const moduleCount = Math.round(qrWidth / modulePx);
+
+  // 3. Oblicz całkowity rozmiar pojedynczego modułu tak, aby idealnie wypełnił kwadrat
+  const minPadding = 14;
+  let targetModuleSize = Math.floor(
+    (targetDisplaySize - minPadding * 2) / moduleCount,
+  );
+  if (targetModuleSize < 3) targetModuleSize = 3;
+
+  const scaledMatrixSize = moduleCount * targetModuleSize;
+  // Dokładnie równy margines z każdej ze 4 stron co do 1 piksela
+  const padding = Math.max(
+    minPadding,
+    Math.round((targetDisplaySize - scaledMatrixSize) / 2),
+  );
+  const finalSize = scaledMatrixSize + padding * 2;
+
+  const finalCanvas = document.createElement("canvas");
+  finalCanvas.width = finalSize;
+  finalCanvas.height = finalSize;
+  const fCtx = finalCanvas.getContext("2d");
+
+  // Czyste białe tło
+  fCtx.fillStyle = "#ffffff";
+  fCtx.fillRect(0, 0, finalSize, finalSize);
+
+  // Rysowanie z wyłączeniem antyaliasingu (perfekcyjne, ostre piksele)
+  fCtx.imageSmoothingEnabled = false;
+  fCtx.drawImage(
+    tempCanvas,
+    minX,
+    minY,
+    qrWidth,
+    qrHeight,
+    padding,
+    padding,
+    scaledMatrixSize,
+    scaledMatrixSize,
+  );
+
+  return {
+    dataUrl: finalCanvas.toDataURL("image/png"),
+    size: finalSize,
+  };
 }
 
 // Pakowanie bazy pojazdów do ultra-skróconego formatu: TS~ID|Typ(T/B)|Loc|Minuty|Notatki~...
@@ -502,7 +586,7 @@ function generatePhoneSyncQR() {
   // Kompresja LZ-String skróconego ciągu znaków
   const compressed = LZString.compressToEncodedURIComponent(compactPayload);
   const finalMobileUrl = `${targetBaseUrl}#d=${compressed}`;
-  const qrImage = renderQrToCanvas(finalMobileUrl, 300);
+  const qrResult = renderQrToCanvas(finalMobileUrl, 280);
 
   Swal.show({
     title:
@@ -510,11 +594,11 @@ function generatePhoneSyncQR() {
     html: `
                     <div style="display: flex; flex-direction: column; align-items: center; gap: 1rem; text-align: center;">
                         <div class="qr-bezel-frame">
-                            <img src="${qrImage}" class="qr-code-image" style="width: 280px; height: 280px;" alt="QR Kod do przesłania na telefon">
+                            <img src="${qrResult.dataUrl}" class="qr-code-image" style="width: ${qrResult.size}px; height: ${qrResult.size}px; max-width: 100%;" alt="QR Kod do przesłania na telefon">
                         </div>
 
                         <div style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 0.75rem; text-align: left; width: 100%; font-size: 0.7rem; display: flex; flex-direction: column; gap: 0.4rem;">
-                            <div><strong style="color: var(--led-green);">OPTYMALIZACJA QR:</strong> Skondensowano dane (${allVehicles.length} pojazdów). Kod posiada grube, rzadkie piksele.</div>
+                            <div><strong style="color: var(--led-green);">OPTYMALIZACJA QR:</strong> Skondensowano dane (${allVehicles.length} pojazdów). Kod jest idealnie wycentrowany i wypełnia równo kwadrat.</div>
                             <div><strong style="color: var(--highlight-color);">ODBIORNIK:</strong> <code>${targetBaseUrl}</code></div>
                             <div style="color: var(--text-muted); font-size: 0.65rem;">
                                 Typy wysyłane są w minimalnym kodzie [T/B], a czas jako minuty. Strona mobilna automatycznie rozwinie pełne opisy i zachowa dane trwale w telefonie.
