@@ -38,11 +38,16 @@
         <!-- Master Header Panel -->
         <header class="panel-header">
             <div class="title-group">
-                <h1>Stacja Główna Floty // NADAJNIK QR</h1>
-                <p>KOMPUTER DYSPchannelERSKI // GENEROWANIE I TRANSFER BAZY DO TELEFONU</p>
+                <h1>Lista Driver | NADAJNIK QR</h1>
+                <p>LISTA SZYBKIEGO PRZEKAZYWANIA | GENEROWANIE I TRANSFER BAZY DO TELEFONU</p>
             </div>
 
             <div class="header-actions">
+                <div class="security-badge" title="Gwarancja 100% przetwarzania lokalnego (Zero-Cloud / Air-Gap)">
+                    <span class="led-indicator led-green"></span>
+                    <span>100% LOKALNIE | ZERO-CLOUD</span>
+                </div>
+
                 <div class="btn-bg">
                     <button type="button" id="themeToggle" class="btn btn-sm" title="Przełącz motyw ciemny/jasny">
                         <i class="bi bi-moon"></i>
@@ -51,9 +56,10 @@
                 </div>
 
                 <div class="btn-bg">
-                    <button type="button" id="toggleInfoBtn" class="btn btn-sm">
-                        <i class="bi bi-info-circle"></i>
-                        <span>Instrukcja QR</span>
+                    <button type="button" id="toggleInfoBtn" class="btn btn-sm btn-accent"
+                        title="Pełna dokumentacja działania i gwarancja braku wysyłki danych do chmury">
+                        <i class="bi bi-shield-check"></i>
+                        <span>Dokumentacja & Bezpieczeństwo</span>
                     </button>
                 </div>
             </div>
@@ -75,7 +81,7 @@
                 <div class="metric-cell accent-blue">
                     <div class="metric-label">
                         <i class="bi bi-truck"></i>
-                        <span>Ciągniki</span>
+                        <span>Tractor</span>
                     </div>
                     <div class="metric-val" id="tractorCount">0</div>
                 </div>
@@ -83,7 +89,7 @@
                 <div class="metric-cell accent-orange">
                     <div class="metric-label">
                         <i class="bi bi-truck-front"></i>
-                        <span>Dostawcze</span>
+                        <span>Box Truck</span>
                     </div>
                     <div class="metric-val" id="boxTruckCount">0</div>
                 </div>
